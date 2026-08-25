@@ -1,0 +1,85 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python build and packaging output
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Tests, coverage, and profiling
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+*.prof
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+secrets/
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.pid.lock
+tmp/
+temp/
+
+# Azure CLI and Azure Functions local state
+.azure/
+local.settings.json
+.funcignore.local
+
+# Local Azure emulator data
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+__azurite_db_*__
+.azurite/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# IDE and editor settings
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local container overrides
+docker-compose.override.yml
+compose.override.yml
+
+# Local benchmark and generated data
+benchmark-results/
+artifacts/
+
+AI-200_Complete_Study_and_Hands-On_Roadmap_with_Master_Project_TDD.md
+info.txt
