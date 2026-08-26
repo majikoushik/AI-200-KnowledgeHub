@@ -38,12 +38,98 @@ Application Insights / Azure Monitor
 KQL
 ```
 
+```text
+Developer
+   ↓
+git push
+   ↓
+Azure DevOps Repo
+   ↓
+Azure Pipeline
+   │
+   ├── install dependencies
+   ├── lint
+   ├── run pytest
+   ├── build Docker image
+   └── tag image
+            ↓
+           ACR
+            ↓
+   ┌────────┼─────────┐
+   ▼        ▼         ▼
+App      Container   AKS
+Service    Apps
+```
+
 You do **not** need to run all components at once.
 
 The objective is to deploy, test, and understand each component so that service-selection questions become intuitive.
 
+```text
+1. User uploads document
+   ↓
+2. FastAPI validates request
+   ↓
+3. PostgreSQL stores document
+   ↓
+4. Processing job is created
+   ↓
+5. Message sent to Service Bus
+   ↓
+6. KEDA sees queue backlog
+   ↓
+7. Worker scales up
+   ↓
+8. Worker loads document
+   ↓
+9. Text is cleaned and chunked
+   ↓
+10. Embeddings are generated
+    ↓
+11. Vectors stored in pgvector
+    ↓
+12. Operational data written to Cosmos DB
+    ↓
+13. DocumentIndexed event published
+    ↓
+14. Event Grid routes event
+    ↓
+15. Azure Function processes event
+    ↓
+16. Document becomes searchable
+
+```
+
 ---
 
+```text
+User asks:
+"Which Azure service scales workers based on queue backlog?"
+
+        ↓
+
+FastAPI
+↓
+Generate query embedding
+↓
+Redis semantic cache
+│
+├── Hit → return result
+│
+└── Miss
+    ↓
+    pgvector or Cosmos
+    ↓
+    metadata filter
+    ↓
+    Top-K chunks
+    ↓
+    cache response
+    ↓
+    return
+```
+
+---
 
 ## 2.1 Technical Design Document — AI-200 KnowledgeHub Master Project
 
@@ -1222,33 +1308,33 @@ AKS deployment can be added as an advanced extension.
 
 ## 2.7 Service-to-Requirement Traceability Matrix
 
-| Service / Technology | Requirement Solved | Project Role |
-|---|---|---|
-| Python + FastAPI | REST/backend application | Search, ingestion, admin APIs |
-| Docker | Reproducible packaging | Same artifact across environments |
-| ACR | Private image storage | Versioned image repository |
-| ACR Tasks | Azure-native build | Focused cloud-build exercise |
-| App Service | Managed web hosting | Admin API |
-| Container Apps | Managed microservices | Search API and worker |
-| KEDA | Event-driven scaling | Scale worker from queue backlog |
-| AKS | Kubernetes operations | Benchmark/reindex workload |
-| PostgreSQL | Relational persistence | System of record |
-| pgvector | Semantic search | Primary vector backend |
-| Cosmos DB | NoSQL + vectors | Operational state + alternate search |
-| Cosmos Change Feed | Database change processing | Change-stream lab |
-| Managed Redis | Low-latency cache | Cache + semantic cache |
-| Service Bus | Durable commands | Document-processing queue |
-| Event Grid | Domain-event routing | Publish processing events |
-| Azure Functions | Event handler | Consume Event Grid events |
-| Key Vault | Secret storage | Protect credentials |
-| App Configuration | Runtime settings | Backend/feature configuration |
-| Managed Identity | Azure authentication | Minimize embedded credentials |
-| OpenTelemetry | Instrumentation | Distributed tracing |
-| Application Insights | App telemetry | Requests/dependencies/exceptions |
-| Azure Monitor | Operational monitoring | Central visibility |
-| KQL | Telemetry analysis | Diagnostics and performance |
-| Azure DevOps Repos | Source control | Git workflow |
-| Azure Pipelines | CI/CD | Test/build/push/deploy |
+| Service / Technology | Requirement Solved         | Project Role                         |
+| -------------------- | -------------------------- | ------------------------------------ |
+| Python + FastAPI     | REST/backend application   | Search, ingestion, admin APIs        |
+| Docker               | Reproducible packaging     | Same artifact across environments    |
+| ACR                  | Private image storage      | Versioned image repository           |
+| ACR Tasks            | Azure-native build         | Focused cloud-build exercise         |
+| App Service          | Managed web hosting        | Admin API                            |
+| Container Apps       | Managed microservices      | Search API and worker                |
+| KEDA                 | Event-driven scaling       | Scale worker from queue backlog      |
+| AKS                  | Kubernetes operations      | Benchmark/reindex workload           |
+| PostgreSQL           | Relational persistence     | System of record                     |
+| pgvector             | Semantic search            | Primary vector backend               |
+| Cosmos DB            | NoSQL + vectors            | Operational state + alternate search |
+| Cosmos Change Feed   | Database change processing | Change-stream lab                    |
+| Managed Redis        | Low-latency cache          | Cache + semantic cache               |
+| Service Bus          | Durable commands           | Document-processing queue            |
+| Event Grid           | Domain-event routing       | Publish processing events            |
+| Azure Functions      | Event handler              | Consume Event Grid events            |
+| Key Vault            | Secret storage             | Protect credentials                  |
+| App Configuration    | Runtime settings           | Backend/feature configuration        |
+| Managed Identity     | Azure authentication       | Minimize embedded credentials        |
+| OpenTelemetry        | Instrumentation            | Distributed tracing                  |
+| Application Insights | App telemetry              | Requests/dependencies/exceptions     |
+| Azure Monitor        | Operational monitoring     | Central visibility                   |
+| KQL                  | Telemetry analysis         | Diagnostics and performance          |
+| Azure DevOps Repos   | Source control             | Git workflow                         |
+| Azure Pipelines      | CI/CD                      | Test/build/push/deploy               |
 
 ---
 
@@ -2553,6 +2639,3 @@ Continuous Deployment
 ```
 
 The purpose is to learn these distinctions through implementation rather than memorization.
-
-
-
