@@ -1,11 +1,4 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_health():
+def test_health(client):
 
     response = client.get("/health")
 
@@ -14,27 +7,28 @@ def test_health():
     data = response.json()
 
     assert data["status"] == "healthy"
-    assert data["service"] == "search-api"
+
+    assert data["database"] == "connected"
 
 
-def test_version():
+def test_version(client):
 
     response = client.get("/version")
 
     assert response.status_code == 200
 
-    data = response.json()
-
-    assert data["version"] == "0.1.0"
+    assert response.json()["version"] == "0.2.0"
 
 
-def test_create_document():
+def test_create_document(client):
 
     payload = {
         "title": "KEDA Overview",
         "category": "azure",
         "department": "cloud",
-        "content": ("KEDA enables event-driven " "autoscaling of workloads."),
+        "content": (
+            "KEDA enables event-driven " "autoscaling of container " "workloads."
+        ),
     }
 
     response = client.post(
@@ -47,17 +41,19 @@ def test_create_document():
     data = response.json()
 
     assert data["document_id"] > 0
+
     assert data["title"] == "KEDA Overview"
+
     assert data["status"] == "received"
 
 
-def test_get_document():
+def test_create_and_get_document(client):
 
     payload = {
-        "title": "Container Apps",
+        "title": "Service Bus Overview",
         "category": "azure",
-        "department": "cloud",
-        "content": ("Azure Container Apps provides " "managed container hosting."),
+        "department": "integration",
+        "content": ("Azure Service Bus provides " "durable enterprise messaging."),
     }
 
     create_response = client.post(
@@ -65,33 +61,47 @@ def test_get_document():
         json=payload,
     )
 
+    assert create_response.status_code == 201
+
     document_id = create_response.json()["document_id"]
 
     get_response = client.get(f"/documents/{document_id}")
 
     assert get_response.status_code == 200
 
-    assert get_response.json()["document_id"] == document_id
+    data = get_response.json()
+
+    assert data["document_id"] == document_id
 
 
-def test_invalid_document():
-
-    payload = {
-        "title": "",
-        "category": "",
-        "content": "abc",
-    }
+def test_invalid_document(client):
 
     response = client.post(
         "/documents",
-        json=payload,
+        json={
+            "title": "",
+            "category": "",
+            "content": "abc",
+        },
     )
 
     assert response.status_code == 422
 
 
-def test_document_not_found():
+def test_document_not_found(client):
 
-    response = client.get("/documents/999999")
+    response = client.get("/documents/999999999")
 
     assert response.status_code == 404
+
+
+def test_correlation_id(client):
+
+    correlation_id = "test-correlation-id"
+
+    response = client.get(
+        "/health",
+        headers={"X-Correlation-ID": correlation_id},
+    )
+
+    assert response.headers["X-Correlation-ID"] == correlation_id

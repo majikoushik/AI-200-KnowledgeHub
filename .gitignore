@@ -72,6 +72,8 @@ __azurite_db_*__
 .DS_Store
 Thumbs.db
 Desktop.ini
+.env.test
+.env
 
 # Local container overrides
 docker-compose.override.yml

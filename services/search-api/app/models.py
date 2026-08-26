@@ -1,9 +1,22 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
+
+DocumentStatus = Literal[
+    "received",
+    "queued",
+    "processing",
+    "indexed",
+    "failed",
+]
 
 
 class DocumentCreate(BaseModel):
+
     title: str = Field(
         min_length=3,
         max_length=200,
@@ -25,8 +38,15 @@ class DocumentCreate(BaseModel):
 
 
 class DocumentResponse(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
     document_id: int
+
     title: str
+
     category: str
+
     department: str | None
-    status: Literal["received"]
+
+    status: DocumentStatus

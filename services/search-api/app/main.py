@@ -3,14 +3,30 @@ from contextlib import asynccontextmanager
 from time import perf_counter
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.database import (
+    check_database_connection,
+    close_database,
+    get_db_session,
+)
 from app.logging_config import configure_logging
-from app.models import DocumentCreate, DocumentResponse
-from app.store import (
-    create_document_record,
-    get_document_record,
+from app.models import (
+    DocumentCreate,
+    DocumentResponse,
+)
+from app.services.document_service import (
+    DocumentService,
 )
 
 # ---------------------------------------------------------
@@ -39,13 +55,27 @@ async def lifespan(app: FastAPI):
         settings.environment,
     )
 
+    try:
+
+        await check_database_connection()
+
+        logger.info("database_connection_successful")
+
+    except Exception:
+
+        # We deliberately don't crash the entire app here.
+        # /health can report the dependency failure.
+        logger.exception("database_connection_failed")
+
     yield
+
+    await close_database()
 
     logger.info("application_stopping")
 
 
 # ---------------------------------------------------------
-# FastAPI application
+# FastAPI
 # ---------------------------------------------------------
 
 app = FastAPI(
@@ -56,7 +86,7 @@ app = FastAPI(
 
 
 # ---------------------------------------------------------
-# Request middleware
+# Middleware
 # ---------------------------------------------------------
 
 
@@ -82,7 +112,7 @@ async def request_logging_middleware(
     except Exception:
 
         logger.exception(
-            "request_failed " "method=%s path=%s correlation_id=%s",
+            "request_failed " "method=%s path=%s " "correlation_id=%s",
             request.method,
             request.url.path,
             correlation_id,
@@ -116,13 +146,33 @@ async def request_logging_middleware(
 
 
 @app.get("/health")
-async def health():
+async def health(
+    response: Response,
+):
 
-    return {
-        "status": "healthy",
-        "service": "search-api",
-        "environment": settings.environment,
-    }
+    try:
+
+        await check_database_connection()
+
+        return {
+            "status": "healthy",
+            "service": "search-api",
+            "environment": settings.environment,
+            "database": "connected",
+        }
+
+    except Exception:
+
+        logger.exception("health_check_database_failed")
+
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+        return {
+            "status": "unhealthy",
+            "service": "search-api",
+            "environment": settings.environment,
+            "database": "disconnected",
+        }
 
 
 # ---------------------------------------------------------
@@ -140,7 +190,7 @@ async def version():
 
 
 # ---------------------------------------------------------
-# Create document
+# Create Document
 # ---------------------------------------------------------
 
 
@@ -152,9 +202,28 @@ async def version():
 async def create_document(
     payload: DocumentCreate,
     request: Request,
+    session: AsyncSession = Depends(get_db_session),
 ):
 
-    document = create_document_record(payload)
+    try:
+
+        document = await DocumentService.create_document(
+            session=session,
+            payload=payload,
+            correlation_id=(request.state.correlation_id),
+        )
+
+    except SQLAlchemyError as exc:
+
+        logger.exception(
+            "document_database_operation_failed " "correlation_id=%s",
+            request.state.correlation_id,
+        )
+
+        raise HTTPException(
+            status_code=(status.HTTP_503_SERVICE_UNAVAILABLE),
+            detail="Database operation failed",
+        ) from exc
 
     logger.info(
         "document_received " "document_id=%s " "category=%s " "correlation_id=%s",
@@ -167,7 +236,7 @@ async def create_document(
 
 
 # ---------------------------------------------------------
-# Get document
+# Get Document
 # ---------------------------------------------------------
 
 
@@ -177,14 +246,32 @@ async def create_document(
 )
 async def get_document(
     document_id: int,
+    session: AsyncSession = Depends(get_db_session),
 ):
 
-    document = get_document_record(document_id)
+    try:
+
+        document = await DocumentService.get_document(
+            session=session,
+            document_id=document_id,
+        )
+
+    except SQLAlchemyError as exc:
+
+        logger.exception(
+            "document_lookup_failed " "document_id=%s",
+            document_id,
+        )
+
+        raise HTTPException(
+            status_code=(status.HTTP_503_SERVICE_UNAVAILABLE),
+            detail="Database operation failed",
+        ) from exc
 
     if document is None:
 
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(status.HTTP_404_NOT_FOUND),
             detail="Document not found",
         )
 
